@@ -125,8 +125,10 @@ export function detectExportType(data: TelegramExport): ExportType {
 export function getDMParticipants(messages: TelegramMessage[]): [string, string] | null {
   const senders = new Map<string, string>() // id -> name
   for (const m of messages) {
-    if (m.type === "message" && m.from && m.from_id) {
-      if (!senders.has(m.from_id)) senders.set(m.from_id, m.from)
+    if (m.type === "message" && m.from_id) {
+      // Use from name if available, otherwise derive from from_id (e.g., "user123" -> "User 123")
+      const displayName = m.from || m.from_id.replace(/^user/, "User ").replace(/^channel/, "Channel ")
+      if (!senders.has(m.from_id)) senders.set(m.from_id, displayName)
       if (senders.size >= 2) break
     }
   }

@@ -342,7 +342,7 @@ export function DMViewer({
   const [viewMode, setViewMode] = useState<"bubble" | "threaded">("bubble")
 
   const participants = useMemo(
-    () => getDMParticipants(data.messages) || [data.name, "You"],
+    () => getDMParticipants(data.messages) || [data.name || "Participant 1", "Participant 2"],
     [data]
   )
 
@@ -352,6 +352,20 @@ export function DMViewer({
   const [personA, personB] = participants
   const colorA = "oklch(0.7 0.15 180)"
   const colorB = "oklch(0.7 0.15 30)"
+
+  // Build a map from from_id to participant name for reliable sender detection
+  const senderToParticipant = useMemo(() => {
+    const map = new Map<string, "A" | "B">()
+    const seen: string[] = []
+    for (const m of data.messages) {
+      if (m.type === "message" && m.from_id && !map.has(m.from_id)) {
+        seen.push(m.from_id)
+        map.set(m.from_id, seen.length === 1 ? "A" : "B")
+        if (seen.length >= 2) break
+      }
+    }
+    return map
+  }, [data.messages])
 
   const messageMap = useMemo(() => {
     const map = new Map<number, TelegramMessage>()
@@ -526,7 +540,9 @@ export function DMViewer({
               }
 
               const msg = item.message
-              const isMe = msg.from === personB
+              // Use from_id map to determine which participant sent the message
+              const participantKey = msg.from_id ? senderToParticipant.get(msg.from_id) : null
+              const isMe = participantKey === "B"
               const senderName = isMe ? personB : personA
               const color = isMe ? colorB : colorA
 
@@ -534,7 +550,7 @@ export function DMViewer({
               let showAvatar = true
               if (idx > 0) {
                 const prevItem = messagesWithDates[idx - 1]
-                if (prevItem.type === "msg" && prevItem.message.from === msg.from) {
+                if (prevItem.type === "msg" && prevItem.message.from_id === msg.from_id) {
                   showAvatar = false
                 }
               }
